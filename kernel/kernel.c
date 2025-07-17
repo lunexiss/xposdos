@@ -2,6 +2,8 @@
 
 // Ия, мен қазақпын, менің атым Нурислам.
 
+// anyway, you can fork this os, if you want...
+
 #include <stdint.h>
 #include "vga.h"
 #include "input.h"

@@ -46,23 +46,54 @@ bool user_exists(const char* username) {
 }
 
 bool check_password(const char* username, const char* password) {
-    char pass_file[256];  // Increased size
+    char pass_file[256];
     int ret = snprintf(pass_file, sizeof(pass_file), "users/%s/creds.txt", username);
-    if (ret >= sizeof(pass_file)) {
-        // fuck ass path too long
-        return false;
-    }
-    
-    char stored_pass[256] = {0};  // increased size
-    if (!read_file_safe(pass_file, stored_pass, "")) {
-        return false;
-    }
-    
+   
+    char stored_pass[256] = {0};
+    read_file_safe(pass_file, stored_pass, "");
+   
     size_t len = strlen(stored_pass);
-    while (len > 0 && (stored_pass[len - 1] == '\n' || stored_pass[len - 1] == '\r')) {
+    while (len > 0 && (stored_pass[len - 1] == '\n' || stored_pass[len - 1] == '\r' || stored_pass[len - 1] == ' ' || stored_pass[len - 1] == '\t')) {
         stored_pass[len - 1] = '\0';
         len--;
     }
+   
+    char trimmed_input[256];
+    strcpy(trimmed_input, password);
+    len = strlen(trimmed_input);
+    while (len > 0 && (trimmed_input[len - 1] == '\n' || trimmed_input[len - 1] == '\r' || trimmed_input[len - 1] == ' ' || trimmed_input[len - 1] == '\t')) {
+        trimmed_input[len - 1] = '\0';
+        len--;
+    }
+
+    bool result = strcmp(stored_pass, trimmed_input) == 0;
+   
+    return result;
+}
+
+void init_user() {
+    if (!fs_folder_exists("users")) {
+        create_user("root", "");
+        return;
+    }
     
-    return strcmp(stored_pass, password) == 0;
+    bool has_users = false;
+    
+    // try to find the root user
+    if (user_exists("root")) {
+        has_users = true;
+    } else {
+        for (int i = 0; i < MAX_FS_FILES; i++) {
+            if (file_table[i].used && 
+                strncmp(file_table[i].folder, "users/", 6) == 0) {
+                has_users = true;
+                strcpy(logged_in_user, "root"); // log in as root
+                break;
+            }
+        }
+    }
+    
+    if (!has_users) {
+        create_user("root", "");
+    }
 }

@@ -32,12 +32,45 @@ void handle_command(char* input);
 
 void shell() {
     char input[128];
+    char username[MAX_USERNAME];
+    char password[MAX_PASSWORD];
 
     print("Welcome to <blue>XPOSD</blue>\n");
 
     while (1) {
-        print("> ");
+        if (strlen(logged_in_user) == 0) {
+            if (user_exists("root")) {
+                print("Username: ");
+                
+                memset(username, 0, sizeof(username));
+                gets(username, &(int){0});
+                uint8_t sc;
+                do {
+                    sc = inb(0x60);
+                } while (sc != 0x9C);
+                
+                print("Password: ");
+                
+                memset(password, 0, sizeof(password));
+                gets(password, &(int){0});
+                do {
+                    sc = inb(0x60);
+                } while (sc != 0x9C);
+                
+                if (check_password(username, password)) {
+                    strcpy(logged_in_user, username);
+                    print("Login successful!\n");
+                } else {
+                    print("Invalid credentials!\n");
+                    continue;
+                }
+            } else {
+                init_user();
+            }
+        }
 
+        print("> ");
+        memset(input, 0, sizeof(input));
         gets(input, &(int){0});  // wait for input
 
         uint8_t sc;

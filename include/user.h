@@ -19,5 +19,7 @@ extern char logged_in_user[MAX_USERNAME];
 void create_user(const char* username, const char* password);
 bool user_exists(const char* username);
 bool check_password(const char* username, const char* password);
+void init_user();
+bool user_exists(const char* username);
 
 #endif
