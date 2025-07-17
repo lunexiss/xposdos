@@ -23,7 +23,7 @@ void fs_load_file_table() {
 
 FileEntry* fs_get_file_entry(const char* full_path) {
     if (!full_path) {
-        print("Path not found!")
+        print("Path not found!");
         return NULL;
     }
     
