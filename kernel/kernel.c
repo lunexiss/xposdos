@@ -15,12 +15,7 @@ void kernel_main() {
     vga_init();
     idt_init();
     pci_init();
-
     fs_init();
-
-    uint32_t table_sector = fs_get_table_sector();
-    // fs_read_table(table_sector, file_table);
-    fs_read_table(table_sector, file_table);
 
     if (global_e1000->mmio_base) {
         print("E1000 initialized successfully\n");
@@ -29,7 +24,5 @@ void kernel_main() {
         print("E1000 not initialized\n");
     }
 
-    // fs_save_table(table_sector, file_table);
     shell();
-
 }

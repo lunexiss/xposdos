@@ -65,7 +65,6 @@ void handle_command(char* input) {
         print("  mksec    - Create a new section\n");
         print("  mkpart   - Create a new partition\n");
         print("  read     - Read from a file\n");
-        print("  mount    - Mount a filesystem\n");
         print("  mkfs     - Create a new filesystem\n");
         print("  mkdir    - Create a new directory\n");
         print("  mkfile   - Create a new file\n");
@@ -125,17 +124,6 @@ void handle_command(char* input) {
             print_hex((sectors >> 16) & 0xFF);
             print_hex((sectors >> 8) & 0xFF);
             print_hex(sectors & 0xFF);
-            print("\n");
-        }
-    } else if (strncmp(input, "mount ", 6) == 0) {
-        int part = atoi(input + 6);
-        if (mount_partition(part)) {
-            print("Mounted partition ");
-            print_dec(part);
-            print("\n");
-        } else {
-            print("Failed to mount partition ");
-            print_dec(part);
             print("\n");
         }
     } else if (strncmp(input, "mkfs ", 5) == 0) {

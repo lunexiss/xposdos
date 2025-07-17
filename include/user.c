@@ -4,7 +4,6 @@
 #include <stdbool.h>
 #include "vga.h"
 
-// Globals
 User users[MAX_USERS];
 int user_count = 0;
 char logged_in_user[MAX_USERNAME] = "";
@@ -38,12 +37,6 @@ void create_user(const char* username, const char* password) {
         print("username is empty\n");
         return;
     }
-
-    if (!fs_dir_exists("/users")) {
-        fs_make_dir("/users");
-    }
-
-    fs_make_dir(user_dir);
 
     char pass_file[80];
     snprintf(pass_file, sizeof(pass_file), "%s/pass", user_dir);
