@@ -1,0 +1,16 @@
+*.log
+*.tmp
+*.exe
+*.dll
+*.iso
+node_modules/
+build/
+obj/
+.DS_Store
+Thumbs.db
+*.img
+*.o
+*.elf
+iso/boot/grub
+asm copy/
+.vscode/
