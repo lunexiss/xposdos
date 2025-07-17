@@ -268,7 +268,7 @@ void handle_command(char* input) {
         const char* args = input + 6;
         const char* space = strchr(args, ' ');
         if (!space) {
-            print("Usage: write <file> <text>\n");
+            print("Usage: write (file) (text)\n");
             return;
         }
 
@@ -354,32 +354,27 @@ void handle_command(char* input) {
         const char* lba_str = input + 7;
         uint32_t lba = atoi(lba_str);  // start of partition
 
-        uint16_t mbr[256];  // sector buffer
+        uint16_t mbr[256]; // 512 bytes
+
         ata_read_sector(0, mbr);
+
         uint8_t* mbr_bytes = (uint8_t*)mbr;
 
-        int entry = 0;  // partition table index 0 to 3
+        int entry = 0;
         int offset = 0x1BE + entry * 16;
 
-        mbr_bytes[offset] = 0x80;            // boootable
-        mbr_bytes[offset + 1] = 0;
-        mbr_bytes[offset + 2] = 0;
-        mbr_bytes[offset + 3] = 0;
+        mbr_bytes[offset] = 0x80;
         mbr_bytes[offset + 4] = 0x83;
-        mbr_bytes[offset + 5] = 0;
-        mbr_bytes[offset + 6] = 0;
-        mbr_bytes[offset + 7] = 0;
 
         *(uint32_t*)&mbr_bytes[offset + 8] = lba;
-        *(uint32_t*)&mbr_bytes[offset + 12] = 100;  // 100 sectors
+        *(uint32_t*)&mbr_bytes[offset + 12] = 100;
 
-        // add boot signature
         mbr_bytes[510] = 0x55;
         mbr_bytes[511] = 0xAA;
 
         ata_write_sector(0, mbr);
 
-        print("Partition created starting at LBA ");
+        print("Partition created at LBA ");
         print_dec(lba);
         print("\n");
     } else if (strncmp(input, "beep", 4) == 0) {
@@ -392,15 +387,17 @@ void handle_command(char* input) {
     } else if (strncmp(input, "register ", 9) == 0) {
         const char* args = input + 9;
         const char* space = strchr(args, ' ');
+        if (!space) {
+            print("Usage: register (username) (password)\n");
+            return;
+        }
 
-        const char* username = args;
-        const char* password = space;
+        int user_len = space - args;
+        char username[64] = {0};
+        strncpy(username, args, user_len);
+        username[user_len] = '\0';
 
-        print(username);
-        print("\n");
-        print(password);
-        print("\n");
-        sscanf(input + 9, "%31s %31s", username, password);
+        const char* password = space + 1;
 
         if (user_exists(username)) {
             print("User already exists\n");
@@ -408,17 +405,23 @@ void handle_command(char* input) {
         }
 
         create_user(username, password);
-
         print("User registered successfully\n");
         return;
     } else if (strncmp(input, "login ", 6) == 0) {
-        char username[MAX_USERNAME] = {0};
-        char password[MAX_PASSWORD] = {0};
-        print(username);
-        print("\n");
-        print(password);
-        print("\n");
-        sscanf(input + 6, "%31s %31s", username, password);
+        const char* args = input + 6;
+        const char* space = strchr(args, ' ');
+
+        if (!space) {
+            print("Usage: login (username) (password)\n");
+            return;
+        }
+
+        int user_len = space - args;
+        char username[64] = {0};
+        strncpy(username, args, user_len);
+        username[user_len] = '\0';
+
+        const char* password = space + 1;
 
         if (!user_exists(username)) {
             print("User not found\n");

@@ -13,24 +13,23 @@
 
 void kernel_main() {
     vga_init();
-
     idt_init();
-    fs_init();
     pci_init();
+
+    fs_init();
+
+    uint32_t table_sector = fs_get_table_sector();
+    // fs_read_table(table_sector, file_table);
+    fs_read_table(table_sector, file_table);
 
     if (global_e1000->mmio_base) {
         print("E1000 initialized successfully\n");
         e1000_print_mac(global_e1000);
-    } else {    
+    } else {
         print("E1000 not initialized\n");
     }
 
-    // FIXME: is there's a thread in C
-    //while (1) {
-    //    e1000_poll();
-    //}
-
+    // fs_save_table(table_sector, file_table);
     shell();
 
-    // while (1) __asm__ volatile ("hlt");
 }

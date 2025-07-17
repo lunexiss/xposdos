@@ -17,7 +17,8 @@ int atoi(const char* str) {
     return res;
 }
 
-void ata_write_sector(uint32_t lba, const uint16_t* buffer) {
+void ata_write_sector(uint32_t lba, const void* vbuf) {
+    const uint16_t* buffer = (const uint16_t*)vbuf;
     outb(ATA_PRIMARY_CTRL, 0x00); // disable these stupid interrupts
 
     outb(ATA_PRIMARY_IO + 2, 1);              // sector count
@@ -35,13 +36,15 @@ void ata_write_sector(uint32_t lba, const uint16_t* buffer) {
         outw(ATA_PRIMARY_IO, buffer[i]);
     }
 
-    // fuck cache
     outb(ATA_PRIMARY_IO + 7, 0xE7);
+
     while (inb(ATA_PRIMARY_IO + 7) & 0x80);
+
+    while (inb(ATA_PRIMARY_IO + 7) & 0x08); 
 }
 
-void ata_read_sector(uint32_t lba, uint16_t* buf) {
-    // send commands to the ata
+void ata_read_sector(uint32_t lba, void* vbuf) {
+    uint16_t* buf = (uint16_t*)vbuf;
     outb(0x1F6, 0xE0 | ((lba >> 24) & 0x0F)); // drive/head
     outb(0x1F2, 1);                          // sector count
     outb(0x1F3, (uint8_t)(lba & 0xFF));      // lba low

@@ -14,6 +14,14 @@ uint32_t mounted_lba = 0;
 uint32_t mounted_size = 0;
 bool fs_mounted = false;
 
+FileEntry file_table[MAX_FS_FILES];
+
+char mounted_fs_name[64] = {0};
+uint32_t mounted_start_sector = 0;
+uint32_t mounted_total_sectors = 0;
+
+uint32_t table_sector = FS_TABLE_SECTOR;
+
 uint32_t fs_get_total_space() {
     return mounted_size * 512; // total bytes
 }
@@ -23,36 +31,67 @@ uint32_t fs_get_max_sectors() {
 }
 
 bool mount_partition(int part) {
+    if (part < 1 || part > 4) return false;
+
     uint16_t mbr[256];
     ata_read_sector(0, mbr);
     uint8_t* mbr_bytes = (uint8_t*)mbr;
-
     int offset = 0x1BE + (part - 1) * 16;
+
     uint32_t lba_start = *(uint32_t*)&mbr_bytes[offset + 8];
     uint32_t sectors = *(uint32_t*)&mbr_bytes[offset + 12];
 
     if (lba_start == 0 || sectors == 0) return false;
 
-    uint16_t buf[256];
-    ata_read_sector(lba_start, buf);
-    uint8_t* bs = (uint8_t*)buf;
-
-    if (bs[0] != 'N' || bs[1] != 'F' || bs[2] != 'S') return false;
-    if (bs[510] != 0x55 || bs[511] != 0xAA) return false;
-
-    mounted_lba = lba_start;
-    mounted_size = sectors;
-    fs_mounted = true;
-
+    fs_mount("XPOSD_FS", lba_start, sectors);
     return true;
 }
 
-void fs_init() {
-    fs_load_file_table();
+void fs_format() {
+    uint32_t table_sector = 20; // just an example sector
+    fs_write_table(table_sector, file_table);
+
+    ata_write_sector(1, (uint8_t*)&table_sector);
 }
 
 void fs_load_file_table() {
-    ata_read_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
+    uint32_t table_sector = fs_get_table_sector();
+    ata_read_sector(table_sector, (uint16_t*)file_table);
+}
+
+void fs_write_table(uint32_t sector, FileEntry* table) {
+    ata_write_sector(sector, (uint16_t*)table);
+}
+
+void fs_init() {
+    if (!fs_mounted) {
+        print("FS not mounted\n");
+        return;
+    }
+
+    fs_load_file_table();
+
+    start_sector = mounted_start_sector;
+    for (int i = 0; i < MAX_FS_FILES; i++) {
+        if (file_table[i].used && file_table[i].start_sector != 0xFFFF) {
+            uint32_t end_sector = file_table[i].start_sector + (file_table[i].size + 511) / 512;
+            if (end_sector > start_sector) {
+                start_sector = end_sector;
+            }
+        }
+    }
+}
+
+uint32_t fs_get_table_sector(void) {
+    uint16_t buffer[256];
+    ata_read_sector(1, buffer); 
+    return buffer[0];
+}
+
+void fs_set_table_sector(uint32_t sector) {
+    uint16_t buffer[256] = {0};
+    buffer[0] = (uint16_t)sector;
+    ata_write_sector(1, buffer);
 }
 
 void fs_make_dir(const char* full_path) {
@@ -89,7 +128,8 @@ void fs_make_dir(const char* full_path) {
             file_table[i].size = 0;
             file_table[i].start_sector = 0xFFFF;  // mark as folder
 
-            ata_write_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
+            uint32_t table_sector = fs_get_table_sector();
+            ata_write_sector(table_sector, (uint16_t*)file_table);
             print("Folder created\n");
             return;
         }
@@ -195,6 +235,7 @@ void fs_save_file(const char* full_path, const char* data) {
             ata_write_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
 
             print("File saved\n");
+            fs_save_table(table_sector, file_table);
             return;
         }
     }
@@ -262,6 +303,18 @@ void fs_delete_file(const char* pattern) {
     }
 }
 
+void fs_read_table(uint32_t table_sector, FileEntry* out_table) {
+    ata_read_sector(table_sector, (uint8_t*)out_table);
+    //print("Loaded table from disk:\n");
+    //for (int i = 0; i < MAX_FS_FILES; i++) {
+    //    if (out_table[i].used) {
+    //        print("File: ");
+    //        print(out_table[i].name);
+    //        print("\n");
+    //    }
+    //}
+}
+
 void fs_read_file(const char* full_path, char* out, const char* current_dir) {
     char folder[MAX_FILENAME] = {0};
     char name[MAX_FILENAME] = {0};
@@ -320,6 +373,17 @@ uint32_t fs_get_free_space() {
     uint32_t free_sectors = mounted_size - used_sectors - reserved_sectors;
     return free_sectors * 512; // return in bytes
 }
+
+void fs_save_file_table() {
+    uint32_t table_sector = fs_get_table_sector();
+    ata_write_sector(table_sector, (uint16_t*)file_table);
+}
+
+void fs_save_table(uint32_t sector, FileEntry* table) {
+    ata_write_sector(sector, (uint8_t*)table);
+    // print("Saved table to disk\n");
+}
+
 
 void fs_save_file_len(const char* full_path, const char* data, uint32_t size) {
     char folder[MAX_FILENAME * 2] = {0};
@@ -427,4 +491,38 @@ void fs_save_file_len(const char* full_path, const char* data, uint32_t size) {
     }
 
     print("No space in file table!\n");
+}
+
+void fs_mount(const char* name, uint16_t start, uint32_t size) {
+    strcpy(mounted_fs_name, name);
+    mounted_start_sector = start;
+    mounted_total_sectors = size;
+
+    mounted_lba = start;
+    mounted_size = size;
+    fs_mounted = true;
+
+    fs_load_file_table();  // after setting mount info!
+
+    // find last used sector
+    start_sector = mounted_start_sector;
+    for (int i = 0; i < MAX_FS_FILES; i++) {
+        if (file_table[i].used && file_table[i].start_sector != 0xFFFF) {
+            uint32_t end = file_table[i].start_sector + (file_table[i].size + 511) / 512;
+            if (end > start_sector) {
+                start_sector = end;
+            }
+        }
+    }
+
+    char temp[32];
+    print("Filesystem '");
+    print(name);
+    print("' mounted at sector ");
+    itoa(start, temp, 10);
+    print(temp);
+    print(" (size: ");
+    itoa(size, temp, 10);
+    print(temp);
+    print(" sectors)\n");
 }
