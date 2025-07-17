@@ -9,10 +9,9 @@ int user_count = 0;
 char logged_in_user[MAX_USERNAME] = "";
 
 // i'm too lazy to put it on the fs header
-bool fs_dir_exists(const char* path) {
-    char dummy[512] = {0};
-    fs_read_file(path, dummy, "");
-    return dummy[0] != 0;
+bool fs_folder_exists(const char* path) {
+    FileEntry* entry = fs_get_file_entry(path);
+    return entry != NULL;
 }
 
 bool read_file_safe(const char* path, char* buffer, const char* current_dir) {
@@ -26,44 +25,44 @@ bool read_file_safe(const char* path, char* buffer, const char* current_dir) {
 }
 
 void create_user(const char* username, const char* password) {
-    char user_dir[64];
-    snprintf(user_dir, sizeof(user_dir), "/users/%s", username);
+    char user_folder[128];
+    snprintf(user_folder, sizeof(user_folder), "users/%s", username);
     
-    if (username == NULL) {
-        print("username is NULL\n");
-        return;
+    if (!fs_folder_exists("users")) {
+        fs_make_dir("users");
     }
-    if (username[0] == '\0') {
-        print("username is empty\n");
-        return;
-    }
-
-    char pass_file[80];
-    snprintf(pass_file, sizeof(pass_file), "%s/pass", user_dir);
-    fs_save_file(pass_file, password);
+    
+    fs_make_dirs(user_folder); // yay users/username
+    
+    char user_file[128];
+    snprintf(user_file, sizeof(user_file), "%s/creds.txt", user_folder);
+    fs_save_file(user_file, password);
 }
 
 bool user_exists(const char* username) {
     char user_dir[64];
-    snprintf(user_dir, sizeof(user_dir), "/users/%s", username);
-
-    return fs_dir_exists(user_dir);
+    snprintf(user_dir, sizeof(user_dir), "users/%s", username);
+    return fs_folder_exists(user_dir);
 }
 
 bool check_password(const char* username, const char* password) {
-    char pass_file[80];
-    snprintf(pass_file, sizeof(pass_file), "/users/%s/pass", username);
-    char stored_pass[64] = {0};
-
+    char pass_file[256];  // Increased size
+    int ret = snprintf(pass_file, sizeof(pass_file), "users/%s/creds.txt", username);
+    if (ret >= sizeof(pass_file)) {
+        // fuck ass path too long
+        return false;
+    }
+    
+    char stored_pass[256] = {0};  // increased size
     if (!read_file_safe(pass_file, stored_pass, "")) {
         return false;
     }
-
+    
     size_t len = strlen(stored_pass);
     while (len > 0 && (stored_pass[len - 1] == '\n' || stored_pass[len - 1] == '\r')) {
         stored_pass[len - 1] = '\0';
         len--;
     }
-
+    
     return strcmp(stored_pass, password) == 0;
 }

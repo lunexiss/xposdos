@@ -28,5 +28,7 @@ void fs_list();
 void fs_delete_file(const char* pattern);
 uint32_t fs_get_free_space();
 void fs_make_dir(const char* full_path);
+void fs_make_dirs(const char* full_path);
+FileEntry* fs_get_file_entry(const char* full_path);
 
 #endif

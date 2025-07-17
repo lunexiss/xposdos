@@ -281,8 +281,19 @@ void handle_command(char* input) {
         print("\n");
     } else if (strncmp(input, "rm ", 3) == 0) {
         const char* arg = input + 3;
-        char full_path[64] = {0};
-
+        char full_path[MAX_FILENAME * 2] = {0};
+        
+        if (arg[0] == '/') {
+            strncpy(full_path, arg, sizeof(full_path) - 1);
+        } else {
+            if (strlen(current_dir) > 0) {
+                snprintf(full_path, sizeof(full_path), "%s/%s", current_dir, arg);
+            } else {
+                strncpy(full_path, arg, sizeof(full_path) - 1);
+            }
+        }
+        
+        full_path[sizeof(full_path) - 1] = '\0';
         fs_delete_file(full_path);
     } else if (strncmp(input, "cd ", 3) == 0) {
         const char* target = input + 3;
@@ -413,6 +424,13 @@ void handle_command(char* input) {
 
         if (!user_exists(username)) {
             print("User not found\n");
+            return;
+        }
+
+        if (strlen(logged_in_user) > 0) {
+            print("Already logged in as ");
+            print(logged_in_user);
+            print("\n");
             return;
         }
 

@@ -1,4 +1,4 @@
-// old fs.c because, i broke the new fs.c
+// some of the code was fixed by claude :3
 
 #include "fs.h"
 #include "string.h"
@@ -21,119 +21,144 @@ void fs_load_file_table() {
     ata_read_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
 }
 
+FileEntry* fs_get_file_entry(const char* full_path) {
+    if (!full_path) {
+        print("Path not found!")
+        return NULL;
+    }
+    
+    char folder[MAX_FILENAME] = {0};
+    char name[MAX_FILENAME] = {0};
+    const char* slash = strrchr(full_path, '/');
+    
+    if (slash) {
+        int folder_len = slash - full_path;
+        if (folder_len >= MAX_FILENAME) folder_len = MAX_FILENAME - 1;
+        strncpy(folder, full_path, folder_len);
+        folder[folder_len] = '\0';
+        
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+    } else {
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        folder[0] = '\0';
+    }
+    
+    // search for the file in the file table like finding waldo
+    for (int i = 0; i < MAX_FS_FILES; i++) {
+        if (file_table[i].used &&
+            strcmp(file_table[i].name, name) == 0 &&
+            strcmp(file_table[i].folder, folder) == 0) {
+            return &file_table[i];
+        }
+    }
+    
+    // didn't find jack shit
+    return NULL;
+}
+
 void fs_make_dir(const char* full_path) {
+    if (!full_path || full_path[0] == '\0') return; // ignore null or empty shit
+
     char folder[MAX_FILENAME] = {0};
     char name[MAX_FILENAME] = {0};
 
-    // use last slash to split path into folder and name
     const char* slash = strrchr(full_path, '/');
     if (slash) {
+        // fuck this stupid fucking folder parsing
         int folder_len = slash - full_path;
+        if (folder_len >= MAX_FILENAME) folder_len = MAX_FILENAME - 1;
         strncpy(folder, full_path, folder_len);
         folder[folder_len] = '\0';
-        strcpy(name, slash + 1);
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
     } else {
-        strcpy(name, full_path);
-        strcpy(folder, "");  // root
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        folder[0] = '\0';
     }
 
-    // check if folder already exists
+    if (strlen(name) == 0) return;
+
     for (int i = 0; i < MAX_FS_FILES; i++) {
         if (file_table[i].used &&
             file_table[i].start_sector == 0xFFFF &&
             strcmp(file_table[i].name, name) == 0 &&
             strcmp(file_table[i].folder, folder) == 0) {
-            print("Folder already exists!\n");
             return;
         }
     }
 
-    // create new folder
     for (int i = 0; i < MAX_FS_FILES; i++) {
         if (!file_table[i].used) {
             file_table[i].used = 1;
-            strncpy(file_table[i].name, name, MAX_FILENAME);
-            strncpy(file_table[i].folder, folder, MAX_FILENAME);
+            strncpy(file_table[i].name, name, MAX_FILENAME - 1);
+            file_table[i].name[MAX_FILENAME - 1] = '\0';
+            strncpy(file_table[i].folder, folder, MAX_FILENAME - 1);
+            file_table[i].folder[MAX_FILENAME - 1] = '\0';
             file_table[i].size = 0;
-            file_table[i].start_sector = 0xFFFF;  // mark as folder
+            file_table[i].start_sector = 0xFFFF;
 
             ata_write_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
-            print("Folder created\n");
             return;
         }
     }
+}
 
-    print("No space in file table!\n");
+void fs_make_dirs(const char* full_path) {
+    if (!full_path) return;
+    
+    char path[MAX_FILENAME * 2] = {0};
+    int len = strlen(full_path);
+
+    // create directories like a fucking tree
+    for (int i = 0; i < len; i++) {
+        if (full_path[i] == '/' || i == len - 1) {
+            int segment_len = (full_path[i] == '/') ? i : i + 1;
+            if (segment_len >= sizeof(path)) segment_len = sizeof(path) - 1;
+            strncpy(path, full_path, segment_len);
+            path[segment_len] = '\0';
+            fs_make_dir(path);
+        }
+    }
 }
 
 void fs_save_file(const char* full_path, const char* data) {
+    if (!full_path || !data) return;
+    
     char folder[MAX_FILENAME * 2] = {0};
     char name[MAX_FILENAME] = {0};
     uint32_t size = strlen(data);
 
     const char* slash = strrchr(full_path, '/');
     if (slash) {
+        // more goddamn path parsing
         int folder_len = slash - full_path;
+        if (folder_len >= sizeof(folder)) folder_len = sizeof(folder) - 1;
         strncpy(folder, full_path, folder_len);
         folder[folder_len] = '\0';
-        strcpy(name, slash + 1);
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
     } else {
-        strcpy(name, full_path);
-        strcpy(folder, "");
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        folder[0] = '\0';
     }
 
-    // h
-    if (strlen(folder) > 0) {
-        char path[MAX_FILENAME * 2] = {0};
-        int len = strlen(folder);
-        for (int i = 0; i <= len; i++) {
-            if (folder[i] == '/' || folder[i] == '\0') {
-                char temp[MAX_FILENAME] = {0};
-                strncpy(temp, folder, i);
-                temp[i] = '\0';
-
-                const char* slash = strrchr(temp, '/');
-                char parent[MAX_FILENAME] = {0};
-                char fname[MAX_FILENAME] = {0};
-
-                if (slash) {
-                    int parent_len = slash - temp;
-                    strncpy(parent, temp, parent_len);
-                    parent[parent_len] = '\0';
-                    strcpy(fname, slash + 1);
-                } else {
-                    strcpy(fname, temp);
-                    strcpy(parent, "");
-                }
-
-                int exists = 0;
-                for (int j = 0; j < MAX_FS_FILES; j++) {
-                    if (file_table[j].used &&
-                        file_table[j].start_sector == 0xFFFF &&
-                        strcmp(file_table[j].name, fname) == 0 &&
-                        strcmp(file_table[j].folder, parent) == 0) {
-                        exists = 1;
-                        break;
-                    }
-                }
-
-                if (!exists && strlen(fname) > 0) {
-                    for (int k = 0; k < MAX_FS_FILES; k++) {
-                        if (!file_table[k].used) {
-                            file_table[k].used = 1;
-                            strncpy(file_table[k].name, fname, MAX_FILENAME);
-                            strncpy(file_table[k].folder, parent, MAX_FILENAME);
-                            file_table[k].size = 0;
-                            file_table[k].start_sector = 0xFFFF;
-                            break;
-                        }
-                    }
-                }
-            }
+    char path[MAX_FILENAME * 2] = {0};
+    int folder_len = strlen(folder);
+    for (int i = 0; i < folder_len; i++) {
+        if (folder[i] == '/' || i == folder_len - 1) {
+            int len = (folder[i] == '/') ? i : i + 1;
+            if (len >= sizeof(path)) len = sizeof(path) - 1;
+            strncpy(path, folder, len);
+            path[len] = '\0';
+            fs_make_dir(path);
         }
     }
 
-    // check if file already exist
+    // check if file already exists and no overwrites bitch
     for (int i = 0; i < MAX_FS_FILES; i++) {
         if (file_table[i].used &&
             strcmp(file_table[i].name, name) == 0 &&
@@ -144,20 +169,23 @@ void fs_save_file(const char* full_path, const char* data) {
     }
 
     int sectors_needed = (size + 511) / 512;
-
     if (start_sector + sectors_needed > FS_MAX_SECTORS) {
         print("Not enough space to save file\n");
         return;
     }
 
+    // find empty slot in file table and claim it
     for (int i = 0; i < MAX_FS_FILES; i++) {
         if (!file_table[i].used) {
             file_table[i].used = 1;
-            strncpy(file_table[i].name, name, MAX_FILENAME);
-            strncpy(file_table[i].folder, folder, MAX_FILENAME);
+            strncpy(file_table[i].name, name, MAX_FILENAME - 1);
+            file_table[i].name[MAX_FILENAME - 1] = '\0';
+            strncpy(file_table[i].folder, folder, MAX_FILENAME - 1);
+            file_table[i].folder[MAX_FILENAME - 1] = '\0';
             file_table[i].size = size;
             file_table[i].start_sector = start_sector;
 
+            // write file data to disk like a fucking typewriter
             for (int s = 0; s < sectors_needed; s++) {
                 ata_write_sector(start_sector + s, (uint16_t*)(data + s * 512));
             }
@@ -173,74 +201,129 @@ void fs_save_file(const char* full_path, const char* data) {
     print("No space in file table!\n");
 }
 
-void fs_delete_file(const char* pattern) {
-    print("Deleting: ");
-    print(pattern);
-    print("\n");
+void fs_delete_file(const char* full_path) {
+    if (!full_path) {
+        print("Path is null!\n");
+        return;
+    }
+    
+    char folder[MAX_FILENAME] = {0};
+    char name[MAX_FILENAME] = {0};
+    int is_folder = 0;
+
+    const char* slash = strrchr(full_path, '/');
+    if (slash) {
+        // yet another round of path parsing hell
+        int folder_len = slash - full_path;
+        if (folder_len >= MAX_FILENAME) folder_len = MAX_FILENAME - 1;
+        strncpy(folder, full_path, folder_len);
+        folder[folder_len] = '\0';
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+    } else {
+        // simple name no path bullshit :3
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        folder[0] = '\0';
+    }
+
+    // check if this is a folder
+    for (int i = 0; i < MAX_FS_FILES; i++) {
+        if (file_table[i].used &&
+            file_table[i].start_sector == 0xFFFF &&
+            strcmp(file_table[i].name, name) == 0 &&
+            strcmp(file_table[i].folder, folder) == 0) {
+            is_folder = 1;
+            print("Found folder entry!\n");
+            break;
+        }
+    }
 
     int deleted = 0;
 
-    int is_folder = 0;
-    char folder[MAX_FILENAME] = {0};
-    char name[MAX_FILENAME] = {0};
-
-    const char* slash = strchr(pattern, '/');
-    if (!slash) {
-        // check if it's a folder
-        strncpy(folder, pattern, MAX_FILENAME);
-        is_folder = 1;
-    } else {
-        int folder_len = slash - pattern;
-        strncpy(folder, pattern, folder_len);
-        folder[folder_len] = '\0';
-        strcpy(name, slash + 1);
-    }
-
+    // time to delete some shit
     for (int i = 0; i < MAX_FS_FILES; i++) {
-        if (!file_table[i].used) continue;
+        if (!file_table[i].used)
+            continue;
 
+        // if folder :3
         if (is_folder) {
-            // FUCK EVERYTHING IN THAT SHIT ASS FOLDER
-            if (strcmp(file_table[i].folder, folder) == 0) {
-                file_table[i].used = 0;
-                deleted++;
+            char target_folder_path[256];
+            if (strlen(folder) > 0) {
+                int ret = snprintf(target_folder_path, sizeof(target_folder_path), "%s/%s", folder, name);
+                if (ret >= sizeof(target_folder_path)) continue;
+            } else {
+                strncpy(target_folder_path, name, sizeof(target_folder_path) - 1);
+                target_folder_path[sizeof(target_folder_path) - 1] = '\0';
             }
-        } else {
-            // exact match
+
+            print("Target folder path: '");
+            print(target_folder_path);
+            print("'\n");
+
+            // delete the folder entry itself
             if (strcmp(file_table[i].folder, folder) == 0 &&
                 strcmp(file_table[i].name, name) == 0) {
+                print("Deleting folder entry\n");
                 file_table[i].used = 0;
                 deleted++;
             }
+            // delete any files or folders inside this folder
+            else if (strncmp(file_table[i].folder, target_folder_path, strlen(target_folder_path)) == 0) {
+                int target_len = strlen(target_folder_path);
+                if (file_table[i].folder[target_len] == '/' || file_table[i].folder[target_len] == '\0') {
+                    print("Deleting file inside folder\n");
+                    file_table[i].used = 0;
+                    deleted++;
+                }
+            }
+        }
+        // if file, exact match or gtfo
+        else if (strcmp(file_table[i].folder, folder) == 0 &&
+                 strcmp(file_table[i].name, name) == 0) {
+            print("Deleting file\n");
+            file_table[i].used = 0;
+            deleted++;
         }
     }
 
     ata_write_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
 
-    if (deleted == 0)
-        print("No files matched\n");
-    else {
+    if (deleted > 0) {
         print_dec(deleted);
         print(" file(s)/folder(s) deleted\n");
+    } else {
+        print("No files matched\n");
     }
 }
 
 void fs_read_file(const char* full_path, char* out, const char* current_dir) {
+    if (!full_path || !out) return;
+    
     char folder[MAX_FILENAME] = {0};
     char name[MAX_FILENAME] = {0};
 
     const char* slash = strrchr(full_path, '/');
     if (slash) {
+        // wowwww, more path parsing fun
         int folder_len = slash - full_path;
         if (folder_len >= MAX_FILENAME) folder_len = MAX_FILENAME - 1;
         strncpy(folder, full_path, folder_len);
         folder[folder_len] = '\0';
-        strcpy(name, slash + 1);
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
     } else {
-        strcpy(name, full_path);
-        strcpy(folder, current_dir); // use current_dir when no slash
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        if (current_dir) {
+            strncpy(folder, current_dir, MAX_FILENAME - 1);
+            folder[MAX_FILENAME - 1] = '\0';
+        } else {
+            folder[0] = '\0';
+        }
     }
 
+    // find the damn file and read it
     for (int i = 0; i < MAX_FS_FILES; i++) {
         if (file_table[i].used &&
             strcmp(file_table[i].name, name) == 0 &&
@@ -250,6 +333,7 @@ void fs_read_file(const char* full_path, char* out, const char* current_dir) {
             uint32_t start = file_table[i].start_sector;
             uint32_t sectors = (size + 511) / 512;
 
+            // read all the sectors like a hungry bitch (not like neco because, i'm a picky eater)
             for (uint32_t s = 0; s < sectors; s++) {
                 ata_read_sector(start + s, (uint16_t*)(out + s * 512));
             }
