@@ -107,6 +107,10 @@ void handle_command(char* input) {
         print("  rm       - Remove file or directory\n");
         print("  write    - Write to a file\n");
         print("  df       - Show free disk space\n");
+        print("  login    - Sign in to an account\n");
+        print("  register - Create an account\n");
+        print("  beep     - Play a 'beep' sound\n");
+        print("  stopbeep - Stop a 'beep' sound\n");
     } else if (strcmp(input, "clear") == 0) {
         clear_screen();
     } else if (strncmp(input, "sh ", 3) == 0) {
