@@ -34,7 +34,9 @@ void create_user(const char* username, const char* password) {
 }
 
 bool user_exists(const char* username) {
-    return fs_is_folder(user_dir);
+    char path[256];
+    snprintf(path, sizeof(path), "users/%s", username);
+    return fs_is_folder(path);
 }
 
 bool check_password(const char* username, const char* password) {
@@ -77,7 +79,7 @@ void init_user() {
     bool has_users = false;
     
     // try to find the root user
-    if (user_exists("root")) {
+    if (user_exists("root") == 1 ) {
         has_users = true;
     } else {
         for (int i = 0; i < MAX_FS_FILES; i++) {
