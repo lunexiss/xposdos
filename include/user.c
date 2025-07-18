@@ -8,12 +8,6 @@ User users[MAX_USERS];
 int user_count = 0;
 char logged_in_user[MAX_USERNAME] = "";
 
-// i'm too lazy to put it on the fs header
-bool fs_folder_exists(const char* path) {
-    FileEntry* entry = fs_get_file_entry(path);
-    return entry != NULL;
-}
-
 bool read_file_safe(const char* path, char* buffer, const char* current_dir) {
     // clear buffer
     memset(buffer, 0, 64);
@@ -28,26 +22,28 @@ void create_user(const char* username, const char* password) {
     char user_folder[128];
     snprintf(user_folder, sizeof(user_folder), "users/%s", username);
     
-    if (!fs_folder_exists("users")) {
+    if (!fs_exists("users")) {
         fs_make_dir("users");
     }
     
     fs_make_dirs(user_folder); // yay users/username
     
     char user_file[128];
-    snprintf(user_file, sizeof(user_file), "%s/creds.txt", user_folder);
+    snprintf(user_file, sizeof(user_file), "%s/extra/creds.txt", user_folder);
     fs_save_file(user_file, password);
 }
 
 bool user_exists(const char* username) {
-    char user_dir[64];
-    snprintf(user_dir, sizeof(user_dir), "users/%s", username);
-    return fs_folder_exists(user_dir);
+    return fs_is_folder(user_dir);
 }
 
 bool check_password(const char* username, const char* password) {
     char pass_file[256];
-    int ret = snprintf(pass_file, sizeof(pass_file), "users/%s/creds.txt", username);
+    int ret = snprintf(pass_file, sizeof(pass_file), "users/%s/extra/creds.txt", username);
+
+    if (user_exists(username) == 2) {
+        return false;
+    }
    
     char stored_pass[256] = {0};
     read_file_safe(pass_file, stored_pass, "");
@@ -72,8 +68,9 @@ bool check_password(const char* username, const char* password) {
 }
 
 void init_user() {
-    if (!fs_folder_exists("users")) {
+    if (fs_is_folder("users") == 2) {
         create_user("root", "");
+        strcpy(logged_in_user, "root"); // log in as root
         return;
     }
     
@@ -87,7 +84,6 @@ void init_user() {
             if (file_table[i].used && 
                 strncmp(file_table[i].folder, "users/", 6) == 0) {
                 has_users = true;
-                strcpy(logged_in_user, "root"); // log in as root
                 break;
             }
         }

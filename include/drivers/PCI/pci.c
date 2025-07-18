@@ -9,6 +9,7 @@
 
 #define CONFIG_ADDRESS 0xCF8
 #define CONFIG_DATA    0xCFC
+static uint8_t e1000_found = 0;
 
 uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t offset) {
     uint32_t address = (uint32_t)((bus << 16) | (slot << 11) |
@@ -178,26 +179,76 @@ pci_bar_info_t pciGetBar(uint8_t bus, uint8_t slot, uint8_t func, uint8_t bar_nu
     return bar_info;
 }
 
-void pci_init() {
-    for (uint8_t bus = 0; bus < 256; bus++) {
-        for (uint8_t slot = 0; slot < 32; slot++) {
-            for (uint8_t func = 0; func < 8; func++) {
-                uint16_t vendor = getVendorID(bus, slot, func);
-                if (vendor == 0xFFFF) continue;
+void checkFunctionForE1000(uint8_t bus, uint8_t device, uint8_t function) {
+    uint16_t vendorID = getVendorID(bus, device, function);
+    if (vendorID == 0xFFFF) return;
 
-                uint16_t device = getDeviceID(bus, slot, func);
-                if (vendor == 0x8086 && device == 0x100E) {
-                    print("Intel e1000 found\n");
+    uint16_t deviceID = getDeviceID(bus, device, function);
+    
+    // Check for Intel e1000
+    if (vendorID == 0x8086 && deviceID == 0x100E) {
+        print("Intel e1000 found\n");
+        
+        pci_bar_info_t bar = pciGetBar(bus, device, function, 0);
+        global_e1000->mmio_base = bar.address;
+        
+        e1000_init(global_e1000, bus, device, function);
+        e1000_found = 1;
+        return;
+    }
 
-                    pci_bar_info_t bar = pciGetBar(bus, slot, func, 0);
-                    global_e1000->mmio_base = bar.address;
+    // Continue searching bridges
+    uint8_t baseClass = getBaseClass(bus, device, function);
+    uint8_t subClass = getSubClass(bus, device, function);
+    
+    if (baseClass == 0x06 && subClass == 0x04) {
+        uint8_t secondaryBus = getSecondaryBus(bus, device, function);
+        checkBusForE1000(secondaryBus);
+    }
+}
 
-                    e1000_init(global_e1000, bus, slot, func);
-                    return;
-                }
+void checkDeviceForE1000(uint8_t bus, uint8_t device) {
+    if (e1000_found) return;  // Stop if already found
+    
+    uint16_t vendorID = getVendorID(bus, device, 0);
+    if (vendorID == 0xFFFF) return;
+
+    checkFunctionForE1000(bus, device, 0);
+    uint8_t headerType = getHeaderType(bus, device, 0);
+
+    if (headerType & 0x80) {
+        for (uint8_t function = 1; function < 8; function++) {
+            if (e1000_found) break;
+            if (getVendorID(bus, device, function) != 0xFFFF) {
+                checkFunctionForE1000(bus, device, function);
             }
         }
     }
+}
 
-    print("e1000 not found\n");
+void checkBusForE1000(uint8_t bus) {
+    for (uint8_t device = 0; device < 32; device++) {
+        if (e1000_found) break;
+        checkDeviceForE1000(bus, device);
+    }
+}
+
+void pci_init() {
+    e1000_found = 0;
+    
+    uint8_t headerType = getHeaderType(0, 0, 0);
+    if ((headerType & 0x80) == 0) {
+        checkBusForE1000(0);
+    } else {
+        for (uint8_t function = 0; function < 8; function++) {
+            if (e1000_found) break;
+            if (getVendorID(0, 0, function) != 0xFFFF) {
+                checkBusForE1000(function);
+            }
+        }
+    }
+    
+    if (!e1000_found) {
+        print("e1000 not found\n");
+    }
 }

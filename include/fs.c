@@ -21,6 +21,71 @@ void fs_load_file_table() {
     ata_read_sector(FS_TABLE_SECTOR, (uint16_t*)file_table);
 }
 
+fs_find_result_t fs_find(const char* full_path) {
+    fs_find_result_t result = {NULL, FS_TYPE_NOT_FOUND};
+    
+    if (!full_path) {
+        print("Path is null!\n");
+        return result;
+    }
+    
+    char folder[MAX_FILENAME] = {0};
+    char name[MAX_FILENAME] = {0};
+    const char* slash = strrchr(full_path, '/');
+    
+    if (slash) {
+        // parse the fucking path again
+        int folder_len = slash - full_path;
+        if (folder_len >= MAX_FILENAME) folder_len = MAX_FILENAME - 1;
+        strncpy(folder, full_path, folder_len);
+        folder[folder_len] = '\0';
+        
+        strncpy(name, slash + 1, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+    } else {
+        strncpy(name, full_path, MAX_FILENAME - 1);
+        name[MAX_FILENAME - 1] = '\0';
+        folder[0] = '\0';
+    }
+    
+    // search through the file table like a detective
+    for (int i = 0; i < MAX_FS_FILES; i++) {
+        if (file_table[i].used &&
+            strcmp(file_table[i].name, name) == 0 &&
+            strcmp(file_table[i].folder, folder) == 0) {
+            
+            result.entry = &file_table[i];
+            
+            // check if it's a folder (start_sector = 0xFFFF) or file
+            if (file_table[i].start_sector == 0xFFFF) {
+                result.type = FS_TYPE_FOLDER;
+            } else {
+                result.type = FS_TYPE_FILE;
+            }
+            
+            return result;
+        }
+    }
+    
+    // didn't find shit
+    return result;
+}
+
+int fs_exists(const char* full_path) {
+    fs_find_result_t result = fs_find(full_path);
+    return (result.type != FS_TYPE_NOT_FOUND);
+}
+
+int fs_is_folder(const char* full_path) {
+    fs_find_result_t result = fs_find(full_path);
+    return (result.type == FS_TYPE_FOLDER);
+}
+
+int fs_is_file(const char* full_path) {
+    fs_find_result_t result = fs_find(full_path);
+    return (result.type == FS_TYPE_FILE);
+}
+
 FileEntry* fs_get_file_entry(const char* full_path) {
     if (!full_path) {
         print("Path not found!");
@@ -234,7 +299,6 @@ void fs_delete_file(const char* full_path) {
             strcmp(file_table[i].name, name) == 0 &&
             strcmp(file_table[i].folder, folder) == 0) {
             is_folder = 1;
-            print("Found folder entry!\n");
             break;
         }
     }
@@ -256,10 +320,6 @@ void fs_delete_file(const char* full_path) {
                 strncpy(target_folder_path, name, sizeof(target_folder_path) - 1);
                 target_folder_path[sizeof(target_folder_path) - 1] = '\0';
             }
-
-            print("Target folder path: '");
-            print(target_folder_path);
-            print("'\n");
 
             // delete the folder entry itself
             if (strcmp(file_table[i].folder, folder) == 0 &&

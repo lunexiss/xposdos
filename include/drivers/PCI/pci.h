@@ -27,6 +27,8 @@ uint8_t getSubClass(uint8_t bus, uint8_t device, uint8_t function);
 uint8_t getSecondaryBus(uint8_t bus, uint8_t device, uint8_t function);
 
 void checkBus(uint8_t bus);
+void checkBusForE1000(uint8_t bus);
+
 
 pci_bar_info_t pciGetBar(uint8_t bus, uint8_t slot, uint8_t func, uint8_t bar_num);
 
