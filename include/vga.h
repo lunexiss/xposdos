@@ -19,6 +19,19 @@
 #define VGA_CRTC_INDEX    0x3D4
 #define VGA_CRTC_DATA     0x3D5
 #define VGA_INPUT_STATUS1 0x3DA
+#define VGA_ADDRESS 0xB8000
+#define WHITE_ON_BLACK 0x0F
+#define VGA_GRAPHICS_ADDRESS 0xA0000
+#define VGA_MISC_WRITE    0x3C2
+#define VGA_SEQ_INDEX     0x3C4
+#define VGA_SEQ_DATA      0x3C5
+#define VGA_CRTC_INDEX    0x3D4
+#define VGA_CRTC_DATA     0x3D5
+#define VGA_GC_INDEX      0x3CE
+#define VGA_GC_DATA       0x3CF
+#define VGA_AC_INDEX      0x3C0
+#define VGA_AC_WRITE      0x3C0
+#define VGA_INPUT_STATUS1 0x3DA
 
 extern int cursor_row;
 extern int cursor_col;
@@ -35,5 +48,9 @@ void draw_char(int x, int y, char c);
 void vga_init();
 void scroll();
 void put_char_color(char c, uint8_t color);
+void set_graphics_mode();
+void put_pixel(int x, int y, uint8_t color);
+void switch_to_text_mode();
+void clear_graphics_screen(uint8_t color);
 
 #endif

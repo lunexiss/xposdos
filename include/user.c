@@ -33,7 +33,7 @@ void create_user(const char* username, const char* password) {
     fs_save_file(user_file, password);
 }
 
-bool user_exists(const char* username) {
+int user_exists(const char* username) {
     char path[256];
     snprintf(path, sizeof(path), "users/%s", username);
     return fs_is_folder(path);
@@ -43,7 +43,11 @@ bool check_password(const char* username, const char* password) {
     char pass_file[256];
     int ret = snprintf(pass_file, sizeof(pass_file), "users/%s/extra/creds.txt", username);
 
-    if (user_exists(username) == 2) {
+    if (!user_exists(username) == 1) {
+        return false;
+    }
+
+    if (username[0] == '\0') {
         return false;
     }
    

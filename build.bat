@@ -54,6 +54,13 @@ for %%F in (include\net\*.c) do (
     set "OBJ_FILES=!OBJ_FILES! build\!filename!.o"
 )
 
+for %%F in (include\ui\*.c) do (
+    echo Compiling %%F...
+    set "filename=%%~nF"
+    i686-elf-gcc -fno-builtin -Iinclude -Iinclude/net -Iinclude/drivers/PCI -Iinclude/drivers/e1000 -c %%F -o build\!filename!.o
+    set "OBJ_FILES=!OBJ_FILES! build\!filename!.o"
+)
+
 echo Linking...
 echo %OBJ_FILES%
 i686-elf-ld -T link.ld -o build\kernel.elf %OBJ_FILES%

@@ -20,6 +20,7 @@
 #include "drivers/sound/beep.h"
 #include "net/ip.h"
 #include "drivers/e1000/e1000.h"
+#include "ui/ui.h"
 // #include "grub_core_img.h"
 // #include "grub_mbr.h"
 // #include "kernel_elf.h"
@@ -111,6 +112,7 @@ void handle_command(char* input) {
         print("  register - Create an account\n");
         print("  beep     - Play a 'beep' sound\n");
         print("  stopbeep - Stop a 'beep' sound\n");
+        print("  uidemo   - Switches to graphics mode (You need to reboot to go back to text mode)");
     } else if (strcmp(input, "clear") == 0) {
         clear_screen();
     } else if (strncmp(input, "sh ", 3) == 0) {
@@ -478,6 +480,9 @@ void handle_command(char* input) {
             print("Incorrect password\n");
         }
         return;
+    } else if (strncmp(input, "uidemo", 6) == 0) {
+        ui_init();
+        ui_demo();
     } else {
         print("Unknown command: ");
         print(input);

@@ -6,10 +6,6 @@
 int cursor_x = 0;
 int cursor_y = 0;
 
-#define VGA_ADDRESS 0xB8000
-#define WHITE_ON_BLACK 0x0F
-#define VGA_GRAPHICS_ADDRESS 0xA0000
-
 uint16_t* vga = (uint16_t*)VGA_ADDRESS;
 uint8_t current_color = WHITE_ON_BLACK;
 
@@ -187,13 +183,12 @@ void write_regs(uint8_t *regs) {
         outb(VGA_SEQ_DATA, *regs++);
     }
 
-    // unlock CRTC
+    // unlock shit
     outb(VGA_CRTC_INDEX, 0x03);
     outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) | 0x80);
     outb(VGA_CRTC_INDEX, 0x11);
     outb(VGA_CRTC_DATA, inb(VGA_CRTC_DATA) & ~0x80);
     
-    // CRTC
     for (uint8_t i = 0; i < 25; i++) {
         outb(VGA_CRTC_INDEX, i);
         outb(VGA_CRTC_DATA, *regs++);
@@ -207,7 +202,7 @@ void write_regs(uint8_t *regs) {
 
     // attribute controller
     for (uint8_t i = 0; i < 21; i++) {
-        (void)inb(VGA_INPUT_STATUS1); // reset flip-flop
+        (void)inb(VGA_INPUT_STATUS1); // reset flipflop
         outb(VGA_AC_INDEX, i);
         outb(VGA_AC_WRITE, *regs++);
     }
@@ -215,4 +210,54 @@ void write_regs(uint8_t *regs) {
     // enable video output
     (void)inb(VGA_INPUT_STATUS1);
     outb(VGA_AC_INDEX, 0x20);
+}
+
+void set_graphics_mode() {
+    uint8_t graphics_mode_regs[] = {
+        0x63,
+        0x03, 0x01, 0x0F, 0x00, 0x0E,
+        0x5F, 0x4F, 0x50, 0x82, 0x54, 0x80, 0xBF, 0x1F,
+        0x00, 0x41, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+        0x9C, 0x0E, 0x8F, 0x28, 0x40, 0x96, 0xB9, 0xA3,
+        0xFF,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x40, 0x05, 0x0F,
+        0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+        0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+        0x41, 0x00, 0x0F, 0x00, 0x00
+    };
+    
+    write_regs(graphics_mode_regs);
+}
+
+void put_pixel(int x, int y, uint8_t color) {
+    if (x >= 0 && x < 320 && y >= 0 && y < 200) {
+        uint8_t* vga_graphics = (uint8_t*)VGA_GRAPHICS_ADDRESS;
+        vga_graphics[y * 320 + x] = color;
+    }
+}
+
+void clear_graphics_screen(uint8_t color) {
+    uint8_t* vga_graphics = (uint8_t*)VGA_GRAPHICS_ADDRESS;
+    for (int i = 0; i < 320 * 200; i++) {
+        vga_graphics[i] = color;
+    }
+}
+
+void switch_to_text_mode() {
+    uint8_t text_mode_regs[] = {
+        0x67,
+        0x03, 0x00, 0x03, 0x00, 0x02,
+        0x5F, 0x4F, 0x50, 0x82, 0x55, 0x81, 0xBF, 0x1F,
+        0x00, 0x4F, 0x0D, 0x0E, 0x00, 0x00, 0x00, 0x50,
+        0x9C, 0x0E, 0x8F, 0x28, 0x1F, 0x96, 0xB9, 0xA3,
+        0xFF,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x10, 0x0E, 0x00,
+        0xFF,
+        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x14, 0x07,
+        0x38, 0x39, 0x3A, 0x3B, 0x3C, 0x3D, 0x3E, 0x3F,
+        0x0C, 0x00, 0x0F, 0x08, 0x00
+    };
+
+    write_regs(text_mode_regs);
 }
