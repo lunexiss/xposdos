@@ -9,6 +9,7 @@
 #define FS_START_SECTOR 100
 #define FS_TABLE_SECTOR 2
 #define FS_TOTAL_SPACE 1024 * 512 
+#define SECTOR_SIZE 512
 
 typedef struct {
     int used;

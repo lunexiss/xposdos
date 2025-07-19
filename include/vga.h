@@ -33,6 +33,8 @@
 #define VGA_AC_WRITE      0x3C0
 #define VGA_INPUT_STATUS1 0x3DA
 
+typedef void (*print_func_t)(const char*);
+
 extern int cursor_row;
 extern int cursor_col;
 extern uint16_t* vga;

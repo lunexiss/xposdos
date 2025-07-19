@@ -337,3 +337,19 @@ void* memmove(void* dest, const void* src, size_t n) {
     }
     return dest;
 }
+
+void utoa(unsigned int val, char* buf, int base) {
+    char* ptr = buf, *ptr1 = buf, tmp_char;
+    unsigned int tmp_val;
+    do {
+        tmp_val = val;
+        val /= base;
+        *ptr++ = "0123456789ABCDEF"[tmp_val - val * base];
+    } while (val);
+    *ptr-- = '\0';
+    while (ptr1 < ptr) {
+        tmp_char = *ptr;
+        *ptr-- = *ptr1;
+        *ptr1++ = tmp_char;
+    }
+}

@@ -21,6 +21,7 @@
 #include "net/ip.h"
 #include "drivers/e1000/e1000.h"
 #include "ui/ui.h"
+#include "binary.h"
 // #include "grub_core_img.h"
 // #include "grub_mbr.h"
 // #include "kernel_elf.h"
@@ -483,6 +484,19 @@ void handle_command(char* input) {
     } else if (strncmp(input, "uidemo", 6) == 0) {
         ui_init();
         ui_demo();
+    } else if (strncmp(input, "run ", 4) == 0) {
+        const char* binary_path = input + 4;
+        
+        int path_len = strlen(binary_path);
+        char clean_path[256] = {0};
+        strncpy(clean_path, binary_path, path_len);
+        
+        while (path_len > 0 && (clean_path[path_len-1] == ' ' || 
+               clean_path[path_len-1] == '\n' || clean_path[path_len-1] == '\r')) {
+            clean_path[--path_len] = '\0';
+        }
+        
+        execute_binary(clean_path);
     } else {
         print("Unknown command: ");
         print(input);
